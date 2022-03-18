@@ -10,6 +10,7 @@
 using namespace Eigen;
 using namespace std;
 
+/// 某一帧图像信息
 class ImageFrame
 {
     public:

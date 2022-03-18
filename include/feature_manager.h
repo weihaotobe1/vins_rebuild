@@ -10,11 +10,9 @@ using namespace std;
 #include <eigen3/Eigen/Dense>
 using namespace Eigen;
 
-//#include <ros/console.h>
-//#include <ros/assert.h>
-
 #include "estimatorparameters.h"
 
+/// 一个特征点在一帧图像上的信息
 class FeaturePerFrame
 {
   public:
@@ -29,10 +27,10 @@ class FeaturePerFrame
         velocity.y() = _point(6); 
         cur_td = td;
     }
-    double cur_td;
-    Vector3d point;
-    Vector2d uv;
-    Vector2d velocity;
+    double cur_td;//时间同步
+    Vector3d point;//正则化
+    Vector2d uv;//像素坐标
+    Vector2d velocity;//速度
     double z;
     bool is_used;
     double parallax;
@@ -41,17 +39,18 @@ class FeaturePerFrame
     double dep_gradient;
 };
 
+/// 一个特征点在所有帧上的信息
 class FeaturePerId
 {
   public:
-    const int feature_id;
-    int start_frame;
+    const int feature_id;//特征id
+    int start_frame;//起始帧
     vector<FeaturePerFrame> feature_per_frame;
 
     int used_num;
     bool is_outlier;
     bool is_margin;
-    double estimated_depth;
+    double estimated_depth;//特征点深度
     int solve_flag; // 0 haven't solve yet; 1 solve succ; 2 solve fail;
 
     Vector3d gt_p;
@@ -65,6 +64,7 @@ class FeaturePerId
     int endFrame();
 };
 
+/// 特征数据库，管理所有的特征
 class FeatureManager
 {
   public:
@@ -90,7 +90,7 @@ class FeatureManager
     void removeBack();
     void removeFront(int frame_count);
     void removeOutlier();
-    list<FeaturePerId> feature;
+    list<FeaturePerId> feature;///所有的特征存储到list中
     int last_track_num;
 
   private:

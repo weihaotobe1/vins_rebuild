@@ -18,6 +18,11 @@
 #include "system.h"
 #include "keyframe.h"
 #include "visualization2.h"
+
+/**
+ * system类的主要作用是为了读取图像和IMU信息，并将对齐的信息送入到estimator中进行估计
+ * */
+
 using namespace std;
 class pgsystem;
 class PoseGraph;

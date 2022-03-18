@@ -6,18 +6,21 @@ Estimator::Estimator(): f_manager{Rs}
     clearState();
 }
 
+/// 设置estimator初始化参数
 void Estimator::setParameter()
 {
-    for (int i = 0; i < NUM_OF_CAM; i++)
+    // 读取相机和imu之间的外参数
+    for (int i = 0; i < NUM_OF_CAM; i++)// NUM_OF_CAM = 1
     {
         tic[i] = TIC[i];
         ric[i] = RIC[i];
     }
-    f_manager.setRic(ric);
-    ProjectionFactor::sqrt_info = ESTFOCAL_LENGTH / 1.5 * Matrix2d::Identity();
+    f_manager.setRic(ric);//特征管理(三角化，视差计算等)
+    ProjectionFactor::sqrt_info = ESTFOCAL_LENGTH / 1.5 * Matrix2d::Identity();//投影factor
     ProjectionTdFactor::sqrt_info = ESTFOCAL_LENGTH / 1.5 * Matrix2d::Identity();
     td = TD;
 }
+
 
 void Estimator::clearState()
 {
@@ -81,6 +84,7 @@ void Estimator::clearState()
     drift_correct_t = Vector3d::Zero();
 }
 
+/// 处理imu信息(中值积分与预积分类中加入相关数据)
 void Estimator::processIMU(double dt, const Vector3d &linear_acceleration, const Vector3d &angular_velocity)
 {
     if (!first_imu)
@@ -91,19 +95,20 @@ void Estimator::processIMU(double dt, const Vector3d &linear_acceleration, const
     }
 
     if (!pre_integrations[frame_count])
-    {
+    {//新建预积分类
         pre_integrations[frame_count] = new IntegrationBase{acc_0, gyr_0, Bas[frame_count], Bgs[frame_count]};
     }
     if (frame_count != 0)
     {
-        pre_integrations[frame_count]->push_back(dt, linear_acceleration, angular_velocity);
+        pre_integrations[frame_count]->push_back(dt, linear_acceleration, angular_velocity);//滑动窗口预积分项中压入数据
         //if(solver_flag != NON_LINEAR)
-            tmp_pre_integration->push_back(dt, linear_acceleration, angular_velocity);
+        tmp_pre_integration->push_back(dt, linear_acceleration, angular_velocity);//两帧图像之间的预积分
 
-        dt_buf[frame_count].push_back(dt);
+        dt_buf[frame_count].push_back(dt);//滑动窗口数据保存
         linear_acceleration_buf[frame_count].push_back(linear_acceleration);
         angular_velocity_buf[frame_count].push_back(angular_velocity);
 
+        // 中值积分
         int j = frame_count;         
         Vector3d un_acc_0 = Rs[j] * (acc_0 - Bas[j]) - g;
         Vector3d un_gyr = 0.5 * (gyr_0 + angular_velocity) - Bgs[j];
@@ -121,14 +126,16 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
 {
     printf("new image coming ------------------------------------------\n");
     printf("Adding feature points %lu\n", image.size());
+    // 边缘化策略：1.倒数第二帧是关键帧，则边缘化最老的关键帧
+    //          2.倒数第二帧不是关键，则删除倒数第二帧
     if (f_manager.addFeatureCheckParallax(frame_count, image, td))
-        marginalization_flag = MARGIN_OLD;
+        marginalization_flag = MARGIN_OLD;//边缘化老的帧
     else
-        marginalization_flag = MARGIN_SECOND_NEW;
+        marginalization_flag = MARGIN_SECOND_NEW;//边缘化倒数第二帧
 
     printf("this frame is--------------------%s\n", marginalization_flag ? "reject" : "accept");
     printf("%s\n", marginalization_flag ? "Non-keyframe" : "Keyframe");
-    printf("Solving %d\n", frame_count);
+    printf("Solving %d\n", frame_count);//这个值当前是10
     printf("number of feature: %d\n", f_manager.getFeatureCount());
     Headers[frame_count] = header;
 
@@ -143,6 +150,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
         printf("calibrating extrinsic param, rotation movement is needed\n");
         if (frame_count != 0)
         {
+            // 获取上一关键帧和当前帧的所有特征的归一化坐标
             vector<pair<Vector3d, Vector3d>> corres = f_manager.getCorresponding(frame_count - 1, frame_count);
             Matrix3d calib_ric;
             if (initial_ex_rotation.CalibrationExRotation(corres, pre_integrations[frame_count]->delta_q, calib_ric))
@@ -156,13 +164,14 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
         }
     }
 
+    /// VINS系统初始化
     if (solver_flag == INITIAL)
     {
         if (frame_count == ESTWINDOW_SIZE)
         {
             bool result = false;
             if( ESTIMATE_EXTRINSIC != 2 && (header - initial_timestamp) > 0.1)
-            {
+            {/// 进行图像和imu的对齐
                result = initialStructure();
                initial_timestamp = header;
             }
@@ -171,7 +180,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
                 solver_flag = NON_LINEAR;
                 solveOdometry();
                 slideWindow();
-                f_manager.removeFailures();
+                f_manager.removeFailures();// 删除三角化失败的特征
                 printf("Initialization finish!\n");
                 last_R = Rs[ESTWINDOW_SIZE];
                 last_P = Ps[ESTWINDOW_SIZE];
@@ -182,15 +191,16 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
             else
                 slideWindow();
         }
-        else
+        else /// 滑动窗口如果不满10帧，则持续向其中增加关键帧
             frame_count++;
     }
     else
-    {
+    { /// VINS系统滑动窗口优化
         TicToc t_solve;
         solveOdometry();
         printf("solver costs: %fms\n", t_solve.toc());
 
+        /// 系统失败检测,假如检测到失败，则重启整个系统
         if (failureDetection())
         {
             printf("failure detection!\n");

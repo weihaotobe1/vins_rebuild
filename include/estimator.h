@@ -89,7 +89,7 @@ class Estimator
     vector<Vector3d> linear_acceleration_buf[(ESTWINDOW_SIZE + 1)];
     vector<Vector3d> angular_velocity_buf[(ESTWINDOW_SIZE + 1)];
 
-    int frame_count;
+    int frame_count = 0;
     int sum_of_outlier, sum_of_back, sum_of_front, sum_of_invalid;
 
     FeatureManager f_manager;
@@ -119,7 +119,7 @@ class Estimator
     MarginalizationInfo *last_marginalization_info;
     vector<double *> last_marginalization_parameter_blocks;
 
-    map<double, ImageFrame> all_image_frame;
+    map<double, ImageFrame> all_image_frame;//所有图像帧
     IntegrationBase *tmp_pre_integration;
 
     //relocalization variable
