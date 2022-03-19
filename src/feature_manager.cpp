@@ -283,7 +283,7 @@ void FeatureManager::removeOutlier()
     }
 }
 
-/// 删除滑动窗口第一帧，并且特征点的深度值进行调整
+/// 删除滑动窗口第一帧，并且特征点的深度值进行调整(锚定位姿发生变化)
 void FeatureManager::removeBackShiftDepth(Eigen::Matrix3d marg_R, Eigen::Vector3d marg_P, Eigen::Matrix3d new_R, Eigen::Vector3d new_P)
 {
     for (auto it = feature.begin(), it_next = feature.begin();
@@ -337,7 +337,7 @@ void FeatureManager::removeBack()
 }
 
 /// 假如删除滑动窗口的最后一帧
-// TODO: 这一部分是啥意思？
+/// 如果次新帧不是关键帧，则舍弃视觉观测信息
 void FeatureManager::removeFront(int frame_count)
 {
     for (auto it = feature.begin(), it_next = feature.begin(); it != feature.end(); it = it_next)
@@ -351,7 +351,7 @@ void FeatureManager::removeFront(int frame_count)
         else
         {
             int j = ESTWINDOW_SIZE - 1 - it->start_frame;
-            if (it->endFrame() < frame_count - 1)
+            if (it->endFrame() < frame_count - 1)//如果只有一帧，则
                 continue;
             it->feature_per_frame.erase(it->feature_per_frame.begin() + j);
             if (it->feature_per_frame.size() == 0)

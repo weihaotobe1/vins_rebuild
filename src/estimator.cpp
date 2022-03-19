@@ -1013,18 +1013,19 @@ void Estimator::optimization()
     printf("whole time for ceres: %f\n", t_whole.toc());
 }
 
+/// 维持滑动窗口的固定大小
 void Estimator::slideWindow()
 {
     TicToc t_margin;
     if (marginalization_flag == MARGIN_OLD)
     {
         double t_0 = Headers[0];
-        back_R0 = Rs[0];
+        back_R0 = Rs[0];///最老关键帧相机位姿
         back_P0 = Ps[0];
         if (frame_count == ESTWINDOW_SIZE)
         {
             for (int i = 0; i < ESTWINDOW_SIZE; i++)
-            {
+            {/// 依次将滑动窗口向前（老的方向）移动
                 Rs[i].swap(Rs[i + 1]);
 
                 std::swap(pre_integrations[i], pre_integrations[i + 1]);
@@ -1039,6 +1040,7 @@ void Estimator::slideWindow()
                 Bas[i].swap(Bas[i + 1]);
                 Bgs[i].swap(Bgs[i + 1]);
             }
+            /// 滑动窗口的最后一帧赋值为上一帧，表示最新一帧的初始值为上一帧的状态
             Headers[ESTWINDOW_SIZE] = Headers[ESTWINDOW_SIZE - 1];
             Ps[ESTWINDOW_SIZE] = Ps[ESTWINDOW_SIZE - 1];
             Vs[ESTWINDOW_SIZE] = Vs[ESTWINDOW_SIZE - 1];
@@ -1046,10 +1048,10 @@ void Estimator::slideWindow()
             Bas[ESTWINDOW_SIZE] = Bas[ESTWINDOW_SIZE - 1];
             Bgs[ESTWINDOW_SIZE] = Bgs[ESTWINDOW_SIZE - 1];
 
-            delete pre_integrations[ESTWINDOW_SIZE];
+            delete pre_integrations[ESTWINDOW_SIZE];//删除最老一帧对应的预积分项（此时已经换到最新一帧的位置）
             pre_integrations[ESTWINDOW_SIZE] = new IntegrationBase{acc_0, gyr_0, Bas[ESTWINDOW_SIZE], Bgs[ESTWINDOW_SIZE]};
 
-            dt_buf[ESTWINDOW_SIZE].clear();
+            dt_buf[ESTWINDOW_SIZE].clear();//IMU测量值的buffer
             linear_acceleration_buf[ESTWINDOW_SIZE].clear();
             angular_velocity_buf[ESTWINDOW_SIZE].clear();
 
@@ -1058,7 +1060,7 @@ void Estimator::slideWindow()
                 map<double, ImageFrame>::iterator it_0;
                 it_0 = all_image_frame.find(t_0);
                 delete it_0->second.pre_integration;
-                it_0->second.pre_integration = nullptr;
+                it_0->second.pre_integration = nullptr;//内存回收
  
                 for (map<double, ImageFrame>::iterator it = all_image_frame.begin(); it != it_0; ++it)
                 {
@@ -1069,13 +1071,12 @@ void Estimator::slideWindow()
 
                 all_image_frame.erase(all_image_frame.begin(), it_0);
                 all_image_frame.erase(t_0);
-
             }
             slideWindowOld();
         }
     }
     else
-    {
+    {/// 边缘化的帧的是倒数第二帧,则删除视觉观测而保留imu信息，保证imu预积分的连贯性
         if (frame_count == ESTWINDOW_SIZE)
         {
             for (unsigned int i = 0; i < dt_buf[frame_count].size(); i++)
@@ -1126,13 +1127,14 @@ void Estimator::slideWindowOld()
     {
         Matrix3d R0, R1;
         Vector3d P0, P1;
-        R0 = back_R0 * ric[0];
-        R1 = Rs[0] * ric[0];
+        R0 = back_R0 * ric[0];// R_CtoG = R_ItoG * R_CtoI
+        R1 = Rs[0] * ric[0];//
         P0 = back_P0 + back_R0 * tic[0];
         P1 = Ps[0] + Rs[0] * tic[0];
+        /// RO P0分别表示边缘化帧的相机位姿， R1 P1分别边缘化后第一帧的相机位姿
         f_manager.removeBackShiftDepth(R0, P0, R1, P1);
     }
-    else
+    else /// 初始化
         f_manager.removeBack();
 }
 
