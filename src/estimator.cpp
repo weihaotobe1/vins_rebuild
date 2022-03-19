@@ -481,6 +481,7 @@ bool Estimator::relativePose(Matrix3d &relative_R, Vector3d &relative_T, int &l)
     return false;
 }
 
+/// 求解滑动窗口优化
 void Estimator::solveOdometry()
 {
     if (frame_count < ESTWINDOW_SIZE)
@@ -488,9 +489,9 @@ void Estimator::solveOdometry()
     if (solver_flag == NON_LINEAR)
     {
         TicToc t_tri;
-        f_manager.triangulate(Ps, tic, ric);
+        f_manager.triangulate(Ps, tic, ric);// 特征点进行三角化
         printf("triangulation costs %f\n", t_tri.toc());
-        optimization();
+        optimization();//滑动窗口优化
     }
 }
 
@@ -1013,16 +1014,19 @@ void Estimator::optimization()
     printf("whole time for ceres: %f\n", t_whole.toc());
 }
 
+
+/// 根据边缘化flag处理滑动窗口的信息
 void Estimator::slideWindow()
 {
     TicToc t_margin;
     if (marginalization_flag == MARGIN_OLD)
-    {
+    {/// 删除的帧为最老关键帧
         double t_0 = Headers[0];
         back_R0 = Rs[0];
         back_P0 = Ps[0];
         if (frame_count == ESTWINDOW_SIZE)
         {
+            /// 依次将滑动窗口关键帧信息进行递推，即将所有的信息向前移动
             for (int i = 0; i < ESTWINDOW_SIZE; i++)
             {
                 Rs[i].swap(Rs[i + 1]);
@@ -1039,14 +1043,14 @@ void Estimator::slideWindow()
                 Bas[i].swap(Bas[i + 1]);
                 Bgs[i].swap(Bgs[i + 1]);
             }
-            Headers[ESTWINDOW_SIZE] = Headers[ESTWINDOW_SIZE - 1];
+            Headers[ESTWINDOW_SIZE] = Headers[ESTWINDOW_SIZE - 1];/// 将倒数第一帧和倒数第二帧进行互换()
             Ps[ESTWINDOW_SIZE] = Ps[ESTWINDOW_SIZE - 1];
             Vs[ESTWINDOW_SIZE] = Vs[ESTWINDOW_SIZE - 1];
             Rs[ESTWINDOW_SIZE] = Rs[ESTWINDOW_SIZE - 1];
             Bas[ESTWINDOW_SIZE] = Bas[ESTWINDOW_SIZE - 1];
             Bgs[ESTWINDOW_SIZE] = Bgs[ESTWINDOW_SIZE - 1];
 
-            delete pre_integrations[ESTWINDOW_SIZE];
+            delete pre_integrations[ESTWINDOW_SIZE];///
             pre_integrations[ESTWINDOW_SIZE] = new IntegrationBase{acc_0, gyr_0, Bas[ESTWINDOW_SIZE], Bgs[ESTWINDOW_SIZE]};
 
             dt_buf[ESTWINDOW_SIZE].clear();
@@ -1075,7 +1079,7 @@ void Estimator::slideWindow()
         }
     }
     else
-    {
+    {/// 删除的帧为倒数第二帧，the_second_new
         if (frame_count == ESTWINDOW_SIZE)
         {
             for (unsigned int i = 0; i < dt_buf[frame_count].size(); i++)
