@@ -210,7 +210,7 @@ VectorXd FeatureManager::getDepthVector()
     return dep_vec;
 }
 
-/// 特征点进行三角化
+/// 特征点进行三角化（对所有的能够进行三角化的特征进行三角化）
 void FeatureManager::triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[])
 {
     for (auto &it_per_id : feature)

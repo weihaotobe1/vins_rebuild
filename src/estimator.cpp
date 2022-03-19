@@ -481,6 +481,7 @@ bool Estimator::relativePose(Matrix3d &relative_R, Vector3d &relative_T, int &l)
     return false;
 }
 
+/// 求解滑动窗口优化
 void Estimator::solveOdometry()
 {
     if (frame_count < ESTWINDOW_SIZE)
@@ -488,9 +489,9 @@ void Estimator::solveOdometry()
     if (solver_flag == NON_LINEAR)
     {
         TicToc t_tri;
-        f_manager.triangulate(Ps, tic, ric);
+        f_manager.triangulate(Ps, tic, ric);// 特征点进行三角化
         printf("triangulation costs %f\n", t_tri.toc());
-        optimization();
+        optimization();//滑动窗口优化
     }
 }
 
@@ -1013,17 +1014,23 @@ void Estimator::optimization()
     printf("whole time for ceres: %f\n", t_whole.toc());
 }
 
+<<<<<<< HEAD
 /// 维持滑动窗口的固定大小
+=======
+
+/// 根据边缘化flag处理滑动窗口的信息
+>>>>>>> d9476da4b60b2b801d92b453968809a9367eb3e4
 void Estimator::slideWindow()
 {
     TicToc t_margin;
     if (marginalization_flag == MARGIN_OLD)
-    {
+    {/// 删除的帧为最老关键帧
         double t_0 = Headers[0];
         back_R0 = Rs[0];///最老关键帧相机位姿
         back_P0 = Ps[0];
         if (frame_count == ESTWINDOW_SIZE)
         {
+            /// 依次将滑动窗口关键帧信息进行递推，即将所有的信息向前移动
             for (int i = 0; i < ESTWINDOW_SIZE; i++)
             {/// 依次将滑动窗口向前（老的方向）移动
                 Rs[i].swap(Rs[i + 1]);
@@ -1040,15 +1047,23 @@ void Estimator::slideWindow()
                 Bas[i].swap(Bas[i + 1]);
                 Bgs[i].swap(Bgs[i + 1]);
             }
+<<<<<<< HEAD
             /// 滑动窗口的最后一帧赋值为上一帧，表示最新一帧的初始值为上一帧的状态
             Headers[ESTWINDOW_SIZE] = Headers[ESTWINDOW_SIZE - 1];
+=======
+            Headers[ESTWINDOW_SIZE] = Headers[ESTWINDOW_SIZE - 1];/// 将倒数第一帧和倒数第二帧进行互换()
+>>>>>>> d9476da4b60b2b801d92b453968809a9367eb3e4
             Ps[ESTWINDOW_SIZE] = Ps[ESTWINDOW_SIZE - 1];
             Vs[ESTWINDOW_SIZE] = Vs[ESTWINDOW_SIZE - 1];
             Rs[ESTWINDOW_SIZE] = Rs[ESTWINDOW_SIZE - 1];
             Bas[ESTWINDOW_SIZE] = Bas[ESTWINDOW_SIZE - 1];
             Bgs[ESTWINDOW_SIZE] = Bgs[ESTWINDOW_SIZE - 1];
 
+<<<<<<< HEAD
             delete pre_integrations[ESTWINDOW_SIZE];//删除最老一帧对应的预积分项（此时已经换到最新一帧的位置）
+=======
+            delete pre_integrations[ESTWINDOW_SIZE];///
+>>>>>>> d9476da4b60b2b801d92b453968809a9367eb3e4
             pre_integrations[ESTWINDOW_SIZE] = new IntegrationBase{acc_0, gyr_0, Bas[ESTWINDOW_SIZE], Bgs[ESTWINDOW_SIZE]};
 
             dt_buf[ESTWINDOW_SIZE].clear();//IMU测量值的buffer
@@ -1076,7 +1091,11 @@ void Estimator::slideWindow()
         }
     }
     else
+<<<<<<< HEAD
     {/// 边缘化的帧的是倒数第二帧,则删除视觉观测而保留imu信息，保证imu预积分的连贯性
+=======
+    {/// 删除的帧为倒数第二帧，the_second_new
+>>>>>>> d9476da4b60b2b801d92b453968809a9367eb3e4
         if (frame_count == ESTWINDOW_SIZE)
         {
             for (unsigned int i = 0; i < dt_buf[frame_count].size(); i++)
