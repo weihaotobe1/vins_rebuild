@@ -6,6 +6,7 @@
 #include "tic_toc.h"
 #include "estimatorparameters.h"
 
+/// 视觉重投影误差
 class ProjectionFactor : public ceres::SizedCostFunction<2, 7, 7, 7, 1>
 {
   public:

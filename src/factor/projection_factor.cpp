@@ -3,6 +3,7 @@
 Eigen::Matrix2d ProjectionFactor::sqrt_info;
 double ProjectionFactor::sum_t;
 
+/// 输入参数
 ProjectionFactor::ProjectionFactor(const Eigen::Vector3d &_pts_i, const Eigen::Vector3d &_pts_j) : pts_i(_pts_i), pts_j(_pts_j)
 {
 #ifdef UNIT_SPHERE_ERROR
@@ -18,19 +19,20 @@ ProjectionFactor::ProjectionFactor(const Eigen::Vector3d &_pts_i, const Eigen::V
 #endif
 };
 
+///
 bool ProjectionFactor::Evaluate(double const *const *parameters, double *residuals, double **jacobians) const
 {
     TicToc tic_toc;
-    Eigen::Vector3d Pi(parameters[0][0], parameters[0][1], parameters[0][2]);
+    Eigen::Vector3d Pi(parameters[0][0], parameters[0][1], parameters[0][2]);//第i帧IMU位姿
     Eigen::Quaterniond Qi(parameters[0][6], parameters[0][3], parameters[0][4], parameters[0][5]);
 
-    Eigen::Vector3d Pj(parameters[1][0], parameters[1][1], parameters[1][2]);
+    Eigen::Vector3d Pj(parameters[1][0], parameters[1][1], parameters[1][2]);//第j帧IMU位姿
     Eigen::Quaterniond Qj(parameters[1][6], parameters[1][3], parameters[1][4], parameters[1][5]);
 
-    Eigen::Vector3d tic(parameters[2][0], parameters[2][1], parameters[2][2]);
+    Eigen::Vector3d tic(parameters[2][0], parameters[2][1], parameters[2][2]);//相机和imu之间的外参
     Eigen::Quaterniond qic(parameters[2][6], parameters[2][3], parameters[2][4], parameters[2][5]);
 
-    double inv_dep_i = parameters[3][0];
+    double inv_dep_i = parameters[3][0];//特征点深度
 
     Eigen::Vector3d pts_camera_i = pts_i / inv_dep_i;
     Eigen::Vector3d pts_imu_i = qic * pts_camera_i + tic;
@@ -39,11 +41,12 @@ bool ProjectionFactor::Evaluate(double const *const *parameters, double *residua
     Eigen::Vector3d pts_camera_j = qic.inverse() * (pts_imu_j - tic);
     Eigen::Map<Eigen::Vector2d> residual(residuals);
 
+    // 球坐标残差（残差定义与普通残差的定义不同而已）
 #ifdef UNIT_SPHERE_ERROR 
     residual =  tangent_base * (pts_camera_j.normalized() - pts_j.normalized());
 #else
     double dep_j = pts_camera_j.z();
-    residual = (pts_camera_j / dep_j).head<2>() - pts_j.head<2>();
+    residual = (pts_camera_j / dep_j).head<2>() - pts_j.head<2>();//普通残差
 #endif
 
     residual = sqrt_info * residual;
